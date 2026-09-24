@@ -15,7 +15,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Scarica dati Digitraffic
-        run: curl -sSfL -H "Accept-Encoding: gzip" --compressed "https://afir.digitraffic.fi/api/charging-network/v1/locations/all" -o fi_all.json
+        run: |
+          curl -sSfL -H "Accept-Encoding: gzip" --compressed "https://afir.digitraffic.fi/api/charging-network/v1/locations/all" -o fi_all.json
 
       - name: Crea file leggero
         run: python3 scripts/finlandia.py
