@@ -1,0 +1,29 @@
+name: Aggiorna colonnine Finlandia
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  aggiorna:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scarica dati Digitraffic
+        run: curl -sSfL -H "Accept-Encoding: gzip" --compressed "https://afir.digitraffic.fi/api/charging-network/v1/locations/all" -o fi_all.json
+
+      - name: Crea file leggero
+        run: python3 scripts/finlandia.py
+
+      - name: Salva
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dati/finlandia.json
+          git commit -m "Aggiornamento colonnine Finlandia" || echo "Nessuna modifica"
+          git push
