@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: '22'
       - name: Legge i prezzi da polttoaine.net
-        run: node scripts/prezzi-finlandia.js
+        run: node .github/scripts/prezzi-finlandia.js
       - name: Salva i file aggiornati
         run: |
           git config user.name "github-actions[bot]"
