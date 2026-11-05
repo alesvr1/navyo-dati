@@ -1,0 +1,34 @@
+name: GPL myLPG
+
+on:
+  schedule:
+    - cron: '23 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  aggiorna:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Scarica i file di myLPG
+        run: |
+          mkdir -p mylpg
+          for p in A D UK N S; do
+            curl -sSfL -A "Navyo/1.0" -o "mylpg/$p.zip" "https://www.mylpg.eu/maps/poi/csv/myLPGeu$p.zip"
+            unzip -o -q "mylpg/$p.zip" -d "mylpg/$p"
+          done
+      - name: Rifà gli elenchi GPL
+        run: node .github/scripts/gpl-mylpg.js
+      - name: Salva i file aggiornati
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dati/gpl-austria.json dati/gpl-germania.json dati/gpl-regnounito.json dati/gpl-norvegia.json dati/gpl-svezia.json
+          git diff --cached --quiet || (git commit -m "GPL myLPG aggiornato" && git pull --rebase && git push)
