@@ -21,8 +21,13 @@ jobs:
         run: |
           mkdir -p mylpg
           for p in A D UK N S; do
-            curl -sSfL -A "Navyo/1.0" -o "mylpg/$p.zip" "https://www.mylpg.eu/maps/poi/csv/myLPGeu$p.zip"
-            unzip -o -q "mylpg/$p.zip" -d "mylpg/$p"
+            curl -sSL -A "Navyo/1.0 (navyo-dati su GitHub)" -e "https://www.mylpg.eu/it/stazioni/download-poi/" -o "mylpg/$p.zip" -w "$p: HTTP %{http_code}, tipo %{content_type}, %{size_download} byte\n" "https://www.mylpg.eu/maps/poi/csv/myLPGeu$p.zip"
+            if ! unzip -o -q "mylpg/$p.zip" -d "mylpg/$p"; then
+              echo "Il file $p non e' uno zip. Inizio del contenuto:"
+              head -c 800 "mylpg/$p.zip"
+              echo
+              exit 1
+            fi
           done
       - name: Rifà gli elenchi GPL
         run: node .github/scripts/gpl-mylpg.js
