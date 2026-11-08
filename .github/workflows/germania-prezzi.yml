@@ -1,0 +1,27 @@
+name: Germania prezzi
+
+on:
+  schedule:
+    - cron: '41 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  aggiorna:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Rifà l'elenco della Germania con i prezzi di mezzogiorno
+        run: node .github/scripts/germania-prezzi.js
+      - name: Salva il file aggiornato
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dati/germania.json
+          git diff --cached --quiet || (git commit -m "Germania prezzi aggiornati" && git pull --rebase && git push)
