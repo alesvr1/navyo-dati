@@ -2,8 +2,8 @@
 // Due volte al giorno scarica da bensinpriser.nu (prezzi segnalati dagli utenti)
 // tutti i distributori della Svezia con i prezzi e salva dati/svezia.json,
 // usato da Navyo per "vicino a me", lungo il percorso e i preferiti.
-// Carburanti: benzina 95, diesel, metano (fordonsgas). Il GPL del file NON si
-// usa: è una copia del prezzo dell'E85. Prezzi in corone (SEK).
+// Carburanti: benzina 95 e diesel. GPL e metano NON si prendono da qui.
+// Prezzi in corone (SEK).
 // Se qualcosa non va (sito non raggiungibile, troppo pochi distributori)
 // il file NON viene cambiato e il programma finisce con errore.
 
@@ -32,11 +32,11 @@ async function scarica() {
   throw new Error('bensinpriser.nu non raggiungibile');
 }
 
-// "OKQ8" / "Övriga" -> nome; "STORGATAN 1" -> "Storgatan 1"
+// "STORGATAN 1" -> "Storgatan 1"
 const maiuscole = (t) => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase()
   .replace(/(^|[\s\-(/.,])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
 
-// prezzo in corone al litro (metano al kg): tiene solo valori sensati
+// prezzo in corone al litro: tiene solo valori sensati
 const prezzo = (v) => {
   const n = Number(v);
   return n > 5 && n < 40 ? Math.round(n * 100) / 100 : null;
@@ -60,10 +60,10 @@ async function main() {
     const marca = String(s.company || '').trim();
     const nome = marca && marca.toLowerCase() !== 'övriga' ? marca : 'Bensinstation';
     const indirizzo = [maiuscole(s.address), maiuscole(s.commune)].filter(Boolean).join(', ');
-    elenco.push([nome, indirizzo, Math.round(lat * 1e6) / 1e6, Math.round(lng * 1e6) / 1e6, prezzo(s.price95), prezzo(s.priceDiesel), prezzo(s.priceFordonsgas)]);
+    elenco.push([nome, indirizzo, Math.round(lat * 1e6) / 1e6, Math.round(lng * 1e6) / 1e6, prezzo(s.price95), prezzo(s.priceDiesel)]);
   }
   const conta = (i) => elenco.filter(r => r[i] != null).length;
-  console.log('Distributori salvati: ' + elenco.length + ' – con prezzo: benzina ' + conta(4) + ', diesel ' + conta(5) + ', metano ' + conta(6));
+  console.log('Distributori salvati: ' + elenco.length + ' – con prezzo: benzina ' + conta(4) + ', diesel ' + conta(5));
 
   if (elenco.length < MINIMO_STAZIONI) {
     console.log('ERRORE: troppo pochi distributori, il file NON viene cambiato.');
