@@ -3,7 +3,8 @@
 // tutti i distributori della Svezia con i prezzi e salva dati/svezia.json,
 // usato da Navyo per "vicino a me", lungo il percorso e i preferiti.
 // Carburanti: benzina 95 e diesel. GPL e metano NON si prendono da qui.
-// Prezzi in corone (SEK).
+// Per ogni distributore salva anche il collegamento alla sua pagina su
+// bensinpriser.nu (prezzo e data dell'ultima segnalazione). Prezzi in corone (SEK).
 // Se qualcosa non va (sito non raggiungibile, troppo pochi distributori)
 // il file NON viene cambiato e il programma finisce con errore.
 
@@ -60,10 +61,10 @@ async function main() {
     const marca = String(s.company || '').trim();
     const nome = marca && marca.toLowerCase() !== 'övriga' ? marca : 'Bensinstation';
     const indirizzo = [maiuscole(s.address), maiuscole(s.commune)].filter(Boolean).join(', ');
-    elenco.push([nome, indirizzo, Math.round(lat * 1e6) / 1e6, Math.round(lng * 1e6) / 1e6, prezzo(s.price95), prezzo(s.priceDiesel)]);
+    elenco.push([nome, indirizzo, Math.round(lat * 1e6) / 1e6, Math.round(lng * 1e6) / 1e6, prezzo(s.price95), prezzo(s.priceDiesel), typeof s.link === 'string' && s.link.startsWith('/') ? s.link : null]);
   }
   const conta = (i) => elenco.filter(r => r[i] != null).length;
-  console.log('Distributori salvati: ' + elenco.length + ' – con prezzo: benzina ' + conta(4) + ', diesel ' + conta(5));
+  console.log('Distributori salvati: ' + elenco.length + ' – con prezzo: benzina ' + conta(4) + ', diesel ' + conta(5) + ' – con collegamento: ' + conta(6));
 
   if (elenco.length < MINIMO_STAZIONI) {
     console.log('ERRORE: troppo pochi distributori, il file NON viene cambiato.');
