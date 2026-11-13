@@ -2,9 +2,11 @@
 // Ogni ora scarica dal Ministero dell'Economia croato (MZOE, mzoe-gor.hr) tutti
 // i distributori della Croazia con i prezzi e salva dati/croazia.json, usato da
 // Navyo per "vicino a me", lungo il percorso e i preferiti.
-// Carburanti: benzina = Eurosuper 95 (senza additivi), gasolio = Eurodizel
-// (senza additivi), GPL = UNP (autoplin). Esclusi: versioni con additivi
-// (premium), Eurosuper 100 e gasolio agricolo (plavi dizel). Prezzi in euro.
+// Carburanti: benzina = Eurosuper 95, gasolio = Eurodizel (il più economico tra
+// "senza additivi" e "con additivi": molte catene vendono come normale quello
+// con additivi, i premium costano di più), GPL = UNP (autoplin), metano =
+// Stlačeni prirodni plin. Esclusi: Eurosuper 100, gasolio agricolo (plavi dizel),
+// bombole, biocarburanti, ricarica elettrica. Prezzi in euro.
 // Attenzione: nel file del Ministero latitudine e longitudine sono scambiate.
 // Se qualcosa non va (sito non raggiungibile, troppo pochi distributori)
 // il file NON viene cambiato e il programma finisce con errore.
@@ -16,7 +18,7 @@ const URL_DATI = 'https://mzoe-gor.hr/data.json';
 const FILE_DATI = path.join(process.cwd(), 'dati', 'croazia.json');
 const MINIMO_STAZIONI = 600;
 // vrsta_goriva_id del Ministero -> colonna nel file di Navyo
-const TIPI = { 2: 'benzina', 8: 'gasolio', 9: 'gpl' };
+const TIPI = { 1: 'benzina', 2: 'benzina', 7: 'gasolio', 8: 'gasolio', 9: 'gpl', 26: 'metano' };
 
 const attesa = (ms) => new Promise(ok => setTimeout(ok, ms));
 
@@ -40,6 +42,17 @@ async function scarica() {
 const maiuscole = (t) => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase()
   .replace(/(^|[\s\-(/.,])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
 
+// "INA-INDUSTRIJA NAFTE d.d." -> "INA"; "TIFON d.o.o." -> "Tifon"; "SHELL HRVATSKA" -> "Shell"
+const pulisciMarca = (t) => {
+  const m = String(t || '').replace(/\s*(d\.d\.|d\.o\.o\.?|j\.d\.o\.o\.)\s*$/i, '').trim();
+  const prima = m.split(/[\s,]+/)[0] || '';
+  if (/^(INA|MOL|OMV|AGS|BP)(-|$)/i.test(prima)) return prima.split('-')[0].toUpperCase();
+  return maiuscole(prima);
+};
+
+// "BP LUČKO" / "PM ZAGREB" -> "Lučko" / "Zagreb" (BP = benzinska postaja, PM = prodajno mjesto)
+const pulisciNome = (t) => maiuscole(String(t || '').replace(/^\s*(B\.?\s?P\.?|B\.?S\.?|P\.?M\.?)(\s+|\s*-\s*)/i, ''));
+
 // prezzo in euro al litro: tiene solo valori sensati
 const prezzo = (v) => {
   const n = Number(v);
@@ -55,7 +68,10 @@ async function main() {
   const tipoDiGorivo = new Map();
   for (const g of dati.gorivos || []) if (g.vrsta_goriva_id != null) tipoDiGorivo.set(g.id, g.vrsta_goriva_id);
   const marche = new Map();
-  for (const o of dati.obvezniks || []) marche.set(o.id, String(o.naziv || '').replace(/\s*(d\.d\.|d\.o\.o\.?|j\.d\.o\.o\.)\s*$/i, '').trim());
+  for (const o of dati.obvezniks || []) marche.set(o.id, pulisciMarca(o.naziv));
+  const perMarca = {};
+  for (const s of dati.postajas) perMarca[s.obveznik_id] = (perMarca[s.obveznik_id] || 0) + 1;
+  console.log('Marche: ' + Object.entries(perMarca).sort((a, b) => b[1] - a[1]).map(([id, n]) => marche.get(Number(id)) + ' ' + n).join(', '));
 
   const visti = new Set();
   const elenco = [];
@@ -66,19 +82,21 @@ async function main() {
     let lng = parseFloat(String(s.lat).replace(',', '.'));
     if (lat > 13 && lat < 20 && lng > 42 && lng < 47) [lat, lng] = [lng, lat];
     if (!(lat > 42.3 && lat < 46.6 && lng > 13.4 && lng < 19.5)) continue;
-    const p = { benzina: null, gasolio: null, gpl: null };
+    const p = { benzina: null, gasolio: null, gpl: null, metano: null };
     for (const c of s.cjenici || []) {
       const tipo = TIPI[tipoDiGorivo.get(c.gorivo_id)];
       const v = prezzo(c.cijena);
       if (tipo && v != null && (p[tipo] == null || v < p[tipo])) p[tipo] = v;
     }
-    const nome = String(s.naziv || '').trim() || marche.get(s.obveznik_id) || 'Benzinska postaja';
+    const marca = marche.get(s.obveznik_id) || '';
+    const luogo = pulisciNome(s.naziv);
+    const nome = !luogo ? (marca || 'Benzinska postaja') : !marca || luogo.toLowerCase().includes(marca.toLowerCase()) ? luogo : marca + ' – ' + luogo;
     const indirizzo = [maiuscole(s.adresa), maiuscole(s.mjesto)].filter(Boolean).join(', ');
-    elenco.push([nome, indirizzo, Math.round(lat * 1e6) / 1e6, Math.round(lng * 1e6) / 1e6, p.benzina, p.gasolio, p.gpl]);
+    elenco.push([nome, indirizzo, Math.round(lat * 1e6) / 1e6, Math.round(lng * 1e6) / 1e6, p.benzina, p.gasolio, p.gpl, p.metano]);
   }
   const conta = (i) => elenco.filter(r => r[i] != null).length;
-  console.log('Distributori salvati: ' + elenco.length + ' – con prezzo: benzina ' + conta(4) + ', diesel ' + conta(5) + ', GPL ' + conta(6));
-  elenco.slice(0, 5).forEach(r => console.log('   ' + JSON.stringify(r)));
+  console.log('Distributori salvati: ' + elenco.length + ' – con prezzo: benzina ' + conta(4) + ', diesel ' + conta(5) + ', GPL ' + conta(6) + ', metano ' + conta(7));
+  elenco.slice(0, 15).forEach(r => console.log('   ' + JSON.stringify(r)));
 
   if (elenco.length < MINIMO_STAZIONI) {
     console.log('ERRORE: troppo pochi distributori, il file NON viene cambiato.');
