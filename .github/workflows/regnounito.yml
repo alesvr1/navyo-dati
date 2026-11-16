@@ -1,0 +1,27 @@
+name: Regno Unito prezzi
+
+on:
+  schedule:
+    - cron: '37 */3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  aggiorna:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Scarica i distributori del Regno Unito con i prezzi
+        run: node .github/scripts/regnounito.js
+      - name: Salva il file aggiornato
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dati/regnounito.json
+          git diff --cached --quiet || (git commit -m "Regno Unito prezzi aggiornati" && git pull --rebase && git push)
